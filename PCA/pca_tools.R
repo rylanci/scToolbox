@@ -205,37 +205,37 @@ PCA <- function(sobj = sobj, bulk.by = "patient", col.by = "condition", meta.fra
    
     if(coolHeatmap){
 	col_fun = colorRamp2(c(0, 0.5, 1), c("blue", "white", "red"))
-	ha.t = HeatmapAnnotation(Condition = meta.frame$condition, Sex = meta.frame$sex,
- 	   annotation_legend_param = list(
-               	Sex = list(
-                title = "Sex",
-                at = unique(meta.frame$sex),
-                labels = unique(meta.frame$sex)
-            ),
+	ha.t = HeatmapAnnotation(Condition = meta.frame$condition, #Sex = meta.frame$sex,
+# 	   annotation_legend_param = list(
+#               	Sex = list(
+#                title = "Sex",
+#                at = unique(meta.frame$sex),
+#                labels = unique(meta.frame$sex)
+#            ),
 		Condition = list(
                 title = "Condition",
                 at = unique(meta.frame$condition),
                 labels = unique(meta.frame$condition)
-            )
+#            )
 
 	))
 
 
-       ha.l = rowAnnotation(CellQuantity = meta.frame$cellquant, Batch = meta.frame$exp_batch,
-    	    annotation_legend_param = list(
-           	CellQuantity = list(
-                title = "CellQuantity",
-                at = c(min(meta.frame$cellquant), median(meta.frame$cellquant), max(meta.frame$cellquant)),
-                labels = c("min", "median", "max")
-            ),
-        	Batch = list(
-                title = "Batch",
-                at = unique(meta.frame$exp_batch),
-                labels = unique(meta.frame$exp_batch)
-            )
-	))
+#       ha.l = rowAnnotation(CellQuantity = meta.frame$cellquant, Batch = meta.frame$exp_batch,
+#    	    annotation_legend_param = list(
+#           	CellQuantity = list(
+#                title = "CellQuantity",
+#                at = c(min(meta.frame$cellquant), median(meta.frame$cellquant), max(meta.frame$cellquant)),
+#                labels = c("min", "median", "max")
+#            ),
+#        	Batch = list(
+#                title = "Batch",
+#                at = unique(meta.frame$exp_batch),
+#                labels = unique(meta.frame$exp_batch)
+#            )
+#	))
    
-      heatmap <- grid.grabExpr(draw(Heatmap(cor.mat, column_names_rot = 60, col = viridis(256), bottom_annotation = ha.t, left_annotation = ha.l)))
+      heatmap <- grid.grabExpr(draw(Heatmap(cor.mat, column_names_rot = 60, col = viridis(256), bottom_annotation = ha.t)))#, left_annotation = ha.l)))
     } else {
       heatmap <- grid.grabExpr(draw(Heatmap(cor.mat, column_names_rot = 60, col = viridis(256))))
     }

@@ -436,7 +436,7 @@ sct.harm.processing <- function(sobj, dims=1:20, res=.05, n.neigh = 30L, min.dis
 }
 
 
-lsi.processing <- function(sobj, TF.method = 1, dims = 1:30, res = .05, assay = "ATAC", harmony = FALSE){
+lsi.processing <- function(sobj, TF.method = 1, dims = 2:30, res = .05, assay = "ATAC", harmony = FALSE){
     DefaultAssay(sobj) <- assay
     sobj <- RunTFIDF(sobj, method = TF.method, assay = assay) %>%
                 FindTopFeatures(min.cutoff = 'q0') %>%
@@ -458,4 +458,105 @@ lsi.processing <- function(sobj, TF.method = 1, dims = 1:30, res = .05, assay = 
     }
 
     return(sobj)
+}
+
+norm_cellquant_bplot2 <- function (sobj, dset.col = "orig.ident", xlab = "seurat_clusters", stack.by = "condition", rand.cols = FALSE){
+    ### This function needs to do 2 things
+        # 1. Normalize the cell quanities by dataset.
+        # 2. Plot the normized values using specified variables
+    
+    # Create table of cells objserved for our dataset and xaxis variable
+    table <- table(sobj@meta.data[[dset.col]], sobj@meta.data[[xlab]])
+    
+    # Normaize this table by dataset cell quanity, so all datasets are scaled by largest. 
+    # Coult use any value but largest of the group works 
+    nmax <- max(rowSums(table))
+    norm.df <- data.frame(row.names = rownames(table))
+    for (r in seq(1, nrow(table))) {
+        rsum <- sum(table[r, ])
+        cfactor <- nmax/rsum
+        trow <- table[r, ] * cfactor
+        # the normaized quanitites are then expresed as a percent of the total accross the x-axis groups
+        trow <- trow/sum(trow) * 100
+        norm.df <- rbind(norm.df, trow)
+    }
+    
+    colnames(norm.df) <- colnames(table)
+    rownames(norm.df) <- rownames(table)
+    
+    ### Normalization is done.
+        # Next step is to add our stack.by variable
+        # If it is not dataset... in which case skip
+    vars <- c()
+    for (r in rownames(norm.df)){
+      # draw the index associated with the dataset in the stack.by column
+      var <-  sobj@meta.data[sobj@meta.data[[dset.col]] == r, stack.by][1]
+      vars <- append(vars, var)
+    }
+    norm.df[[stack.by]] <- vars
+    
+    # melt dataframe for ggplot
+    norm.df.m <- melt(t, id = stack.by)
+    
+    ### plotting 
+    cols <- c("cadetblue4", "lightgoldenrod", "salmon", 
+        "paleturquoise3","palegreen3", "mediumpurple1", "salmon", 
+        "lightblue4", "navajowhite1", "magenta", "coral2", 
+        "mediumorchid1", "midnightblue", "lightgoldenrodyellow", 
+        "black", "lightgrey", "mistyrose4","darkcyan", "steelblue2", 
+        "darkolivegreen3", "mediumpurple1", "lightskyblue")
+   
+    # randomize colors for fun
+    if (rand.cols == TRUE){
+        cols <- sample(x = cols, size = ncol(norm.df), replace = F)
+    }
+    
+    # Create ggplot ****** note the bizzare ass method for using variables in ggplot... nice
+    bp <- ggplot(norm.df.m, aes(fill = .data[[stack.by]] , y = value, x = variable)) + 
+        geom_bar(position="fill", stat="identity") + scale_fill_manual(values = cols) +
+        theme(axis.text.x = element_text(angle = 40, vjust = 0.5, hjust=1)) + 
+        ggtitle("Normalized Stacked Barplot") + xlab(xlab) + ylab("pct.cell.quantity")
+    
+    
+    return(bp)
+
+}
+
+dset_barplot <- function(sobj, dset.col = "orig.ident", stack.by = "seurat_clusters", rand.cols = FALSE){
+    
+    table <- table(sobj@meta.data[[dset.col]], sobj@meta.data[[stack.by]])
+    
+    ### express columns as percent of a total for each dataset
+    for (r in seq(1, nrow(table))) {
+        trow <- table[r, ]
+        table[r,] <- trow/sum(trow) * 100
+    }
+
+    
+  #  print(table)
+    m.table <- melt(table, id = rownames(table))
+    colnames(m.table) <- c("dataset", "cluster", "pct.quantity")
+    m.table$cluster <- as.factor(m.table$cluster)
+    
+    ### plotting 
+    cols <- c("cadetblue4", "lightgoldenrod", "salmon", 
+        "paleturquoise3","palegreen3", "mediumpurple1", "salmon", 
+        "lightblue4", "navajowhite1", "magenta", "coral2", 
+        "mediumorchid1", "midnightblue", "lightgoldenrodyellow", 
+        "black", "lightgrey", "mistyrose4","darkcyan", "steelblue2", 
+        "darkolivegreen3", "mediumpurple1", "lightskyblue")
+   
+    # randomize colors for fun
+    if (rand.cols == TRUE){
+        cols <- sample(x = cols, size = ncol(norm.df), replace = F)
+    }
+    
+    
+    
+    bp <- ggplot(m.table, aes(fill = cluster , y = pct.quantity, x = dataset)) + 
+        geom_bar(position="fill", stat="identity") + scale_fill_manual(values = cols) +
+        theme(axis.text.x = element_text(angle = 40, vjust = 0.5, hjust=1)) + 
+        ggtitle("Stacked Barplot") + xlab("dataset") + ylab("pct.cell.quantity")
+    
+    return(bp)
 }
