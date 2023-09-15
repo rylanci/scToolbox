@@ -62,8 +62,9 @@ create_DE_meta <- function(sobj = sobj, bulk.by = "orig.ident", col.by = "condit
 
 
 PCA <- function(sobj = sobj, bulk.by = "patient", col.by = "condition", meta.frame = meta.frame,
-                       formula = NULL, nFeatures = 500, assay = "RNA", normalization = "RLG",
-                       batchCorr = FALSE, outdir = NULL, name = "", coolHeatmap = TRUE){
+                       nFeatures = 500, assay = "RNA", normalization = "RLG",
+                       batch.col = NULL, batch2.col = NULL, batchCorr = FALSE, 
+		       outdir = NULL, name = "", coolHeatmap = TRUE){
     ### Define PCA resolution... Donor, Condition, Ect...
     res <- unique(sobj[[bulk.by]][,1])
     col.groups <- meta.frame$condition
@@ -94,10 +95,14 @@ PCA <- function(sobj = sobj, bulk.by = "patient", col.by = "condition", meta.fra
     
     ### Subset metadata to contain only rows found in bulk count matrix
     meta.frame <- meta.frame[colnames(bdf),]
-    
+   
+    ### **** Design formula only effects results reporting by adjusting fold change.i
+    ### Not necessary to have full design here because it does not impact pca. 
+    ### To add covariates to correct for, use limma:removeBatchEffects 
+
     ### Initialize DESEq dataset with design formula 
     #ff = as.formula ("~ condition + cellquant + sex + donation_age + race + exp_batch")
-    ff = formula
+    ff = as.formula("~ condition")
     dds  <- suppressWarnings(DESeqDataSetFromMatrix(round(bdf), colData = meta.frame, design = ff))
     
     ### Normalize by VST/RLG. 
@@ -114,12 +119,23 @@ PCA <- function(sobj = sobj, bulk.by = "patient", col.by = "condition", meta.fra
     
     
     ### Batch correction
-    if (batchCorr == TRUE){
+    if (batchCorr == TRUE & is.null(batch2.col) == FALSE){
         print("Using batch corrected matrix")
+    	print(paste0("Batch 1:", batch.col))
+	print(paste0("Batch 2:", batch2.col))
+
         mm <- model.matrix(~ condition, colData(dds))
-        btch_mat <- limma::removeBatchEffect(assay(dds), batch=meta.frame$exp_batch, design=mm)
+        btch_mat <- limma::removeBatchEffect(assay(dds), batch=meta.frame[[batch.col]], 
+				batch2 = meta.frame[[batch2.col]], design=mm)
+        assay(dds) <- btch_mat
+    } else if (batchCorr == TRUE){
+        print("Using batch corrected matrix")
+    	print(paste0("Batch: ", batch.col))
+        mm <- model.matrix(~ condition, colData(dds))
+        btch_mat <- limma::removeBatchEffect(assay(dds), batch=meta.frame[[batch.col]], design=mm)
         assay(dds) <- btch_mat
     }
+
     
     ### DESeq:PlotPCA source code 
     ### Using instead to acess PC's 3/4 & increase ggrepel overlaps. Not available with PlotPCA() 
@@ -136,8 +152,10 @@ PCA <- function(sobj = sobj, bulk.by = "patient", col.by = "condition", meta.fra
           "navajowhite1", "magenta", "lightsalmon", "mediumorchid1", "midnightblue",
           "lightskyblue", "lightgoldenrodyellow", "black", "lightgrey", "mistyrose4", "darkcyan")
 
-    col.groups <- meta.frame$condition
-    
+    col.groups <- meta.frame[[col.by]]
+ #   col.groups <- meta.frame$condition
+#    col.groups <- meta.frame$TOD
+
     ### Select the PCs and percentVar that you like instead of 1 and 2
     d12 <- data.frame(PC1 = pca$x[, 1], PC2 = pca$x[, 2], 
                       group = col.groups, 
@@ -205,18 +223,18 @@ PCA <- function(sobj = sobj, bulk.by = "patient", col.by = "condition", meta.fra
    
     if(coolHeatmap){
 	col_fun = colorRamp2(c(0, 0.5, 1), c("blue", "white", "red"))
-	ha.t = HeatmapAnnotation(Condition = meta.frame$condition, #Sex = meta.frame$sex,
-# 	   annotation_legend_param = list(
-#               	Sex = list(
-#                title = "Sex",
-#                at = unique(meta.frame$sex),
-#                labels = unique(meta.frame$sex)
-#            ),
+	ha.t = HeatmapAnnotation(Condition = meta.frame$condition, TOD = meta.frame$TOD,
+ 	   annotation_legend_param = list(
+                	TOD = list(
+                 title = "TOD",
+                 at = unique(meta.frame$TOD),
+                 labels = unique(meta.frame$TOD)
+             ),
 		Condition = list(
                 title = "Condition",
                 at = unique(meta.frame$condition),
                 labels = unique(meta.frame$condition)
-#            )
+             )
 
 	))
 

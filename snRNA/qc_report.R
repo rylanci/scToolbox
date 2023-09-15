@@ -49,7 +49,13 @@ norm_cellquant_bplot2.0 <- function (sobj, dset.col = "orig.ident", xlab = "seur
         "lightblue4", "navajowhite1", "magenta", "coral2", 
         "mediumorchid1", "midnightblue", "lightgoldenrodyellow", 
         "black", "lightgrey", "mistyrose4","darkcyan", "steelblue2", 
-        "darkolivegreen3", "mediumpurple1", "lightskyblue")
+        "darkolivegreen3", "mediumpurple1", "lightskyblue", "firebrick2",
+        "burlywood", "chartreuse1", "deeppink2", "khaki", "powderblue",
+        "slategrey", "springgreen", "yellow3", "orange2", "lightsteelblue3", 
+    	"tomato3", "palegreen4", "grey27", "darkseagreen", "blue", "darkorchid",
+        "snow2", "peachpuff2", "magenta2", "yellowgreen", "cornflowerblue",
+        "chocolate", "blueviolet", "lighblue1", "plum2")
+
    
     # randomize colors for fun
     if (rand.cols == TRUE){
@@ -91,17 +97,18 @@ dset_barplot1.0 <- function(sobj, dset.col = "orig.ident", stack.by = "seurat_cl
         "lightblue4", "navajowhite1", "magenta", "coral2", 
         "mediumorchid1", "midnightblue", "lightgoldenrodyellow", 
         "black", "lightgrey", "mistyrose4","darkcyan", "steelblue2", 
-        "darkolivegreen3", "mediumpurple1", "lightskyblue")
+        "darkolivegreen3", "mediumpurple1", "lightskyblue", "firebrick2",
+        "burlywood", "chartreuse1", "deeppink2", "khaki", "powderblue",
+        "slategrey", "springgreen", "yellow3", "orange2", "lightsteelblue3", 
+    	"tomato3", "palegreen4", "grey27", "darkseagreen", "blue", "darkorchid",
+        "snow2", "peachpuff2", "magenta2", "yellowgreen", "cornflowerblue",
+        "chocolate", "blueviolet", "lighblue1", "plum2")
 
-    # do this for the so the plot doesn't break when there are > 22 clusters
-    # this particular plot will be uninterpretable at that point so it doesn't really matter
-    cols <- c(cols, cols)
    
     # randomize colors for fun
     if (rand.cols == TRUE){
         cols <- sample(x = cols, size = ncol(norm.df), replace = F)
     }
-    
     
     
     bp <- ggplot(m.table, aes(fill = cluster , y = pct.quantity, x = dataset)) + 
@@ -171,15 +178,17 @@ qc_report <- function(sobj, cluster.col = "seurat_clusters", condition.col = "co
         theme(axis.text.x = element_text(angle = 20, vjust = 0.5, hjust=.5))
     
     
-    ## Normalized barplots (cluster by condition)
-    ct_barplot <- norm_cellquant_bplot2.0(sobj, dset.col = dataset.col, xlab = cluster.col, stack.by = condition.col)
+    ## Normalized barplots (stack by condition & normalize by condition)
+    ct_barplot <- norm_cellquant_bplot2.0(sobj, dset.col = condition.col, xlab = cluster.col, stack.by = condition.col)
+    ## Normalized barplots (stack by dataset & normalize by dataset)
+    dset_barplot <- norm_cellquant_bplot2.0(sobj, dset.col = dataset.col, xlab = cluster.col, stack.by = dataset.col)
     ## Non normalized barplot (dataset by cluster) 
     d_barplot <- dset_barplot1.0(sobj, dset.col = dataset.col, stack.by = cluster.col)
     
     ### Create a simplified report for each catagory
     dir.create(path = outdir, showWarnings = FALSE)
     ### UMAP based report 
-    pdf(file = paste0(outdir, "umap_summary.pdf"), width = 18, height = 16)
+    pdf(file = paste0(outdir, "umap_summary.pdf"), width = 22, height = 16)
         grid.arrange(clust_umap, cond_umap, dset_umap, 
                     count_fp, feat_fp, mito_fp, ncol = 3)
     dev.off()
@@ -192,8 +201,8 @@ qc_report <- function(sobj, cluster.col = "seurat_clusters", condition.col = "co
         grid.arrange(count_bp_d, feat_bp_d, mt_bp_d, ncol = 1)
     dev.off()
     ### barplot summary 
-    pdf(file = paste0(outdir, "composition_barplot_summary.pdf"), width = 18, height = 16)
-        grid.arrange(ct_barplot, d_barplot, ncol = 1)
+    pdf(file = paste0(outdir, "composition_barplot_summary.pdf"), width = 18, height = 24)
+        grid.arrange(ct_barplot, dset_barplot, d_barplot, ncol = 1)
     dev.off()
     
     
@@ -202,3 +211,5 @@ qc_report <- function(sobj, cluster.col = "seurat_clusters", condition.col = "co
     
 }
 
+### Changes to make 
+# mandatory rasterization for umap summary and feature plots

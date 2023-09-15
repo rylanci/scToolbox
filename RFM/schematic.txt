@@ -1,0 +1,23 @@
+#### RFM pipeline dev notebook
+
+Rscript-
+To start it would be nice to have an Rscript that took an object as input, and output matrices and metadata for the groups of interest. 
+
+A matrix & metadata created with no group info would contain all cell barcodes, with metadata for all catagories of condition or whatever metadata feature
+we would be attempting to distinguish.
+
+If there is split.by group info, matrices and metadata would be created for each of these groups independently.  
+
+Similary there will be comparison input. Like the DE-pipeline it can point to a text file of desired comparisons.
+If no file is presented all catagories will be present in the matrix/metadata representing that group. 
+Otherwise a matrix & metadata will be created for each comparison in the specified group.
+
+Example:
+hepatocye/nash_nash.regression
+hepatocyte/nash_nash.control
+endothelial/nash_nash.regression
+endothelial/nash_nash.control
+
+Python-
+Then using python and RFM a script could be pointed to the directory containing the matrices and metadata,
+and create output for each group. Output might contain tables, plots, model diagnostics, ect...

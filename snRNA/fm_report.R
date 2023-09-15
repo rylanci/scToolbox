@@ -8,17 +8,61 @@ suppressPackageStartupMessages(library(org.Mm.eg.db))
 ### This script will contain functions to run findmarkers and write a report on the output
 
 # Functions
-run_fm <- function(sobj, n.workers = 1, idents = "seurat_clusters", logfc.threshold = 0.25, sct.adjust = FALSE){
-	plan(multicore, workers = n.workers)
-	options(future.globals.maxSize = 2000 * 1024^2)
-
+run_fm <- function(sobj, future = FALSE, n.workers = 1, idents = "seurat_clusters", logfc.threshold = 0.25){
+	if (future == TRUE){
+	    plan(multicore, workers = n.workers)
+	    options(future.globals.maxSize = 2000 * 1024^2)
+	}
 	Idents(sobj) <- idents
 	res <- FindAllMarkers(sobj, logfc.threshold = logfc.threshold)
 
 	return(res)
 }
 
-fm_report <- function(res, outdir){
+
+# Writes spreadsheet of top DE genes
+write.top.n.xlsx <- function(markers, file, group.by = "cluster", n = 100){
+    wb <- createWorkbook("TopMarkers")
+
+    for (c in unique(markers[[group.by]])){
+	if (c == 0){c <- "z"}
+        addWorksheet(wb, c)
+        tdf <- head(markers[markers[[group.by]] == c, ], n = n)
+        writeData(wb, sheet = c, x = tdf)
+    }
+
+    saveWorkbook(wb = wb, file = file, overwrite = TRUE)
+}
+
+### Changes to make 
+#fm_kmeans <- function(){
+	# think about this later
+#}
+
+
+run_presto <- function(sobj, group.by = "seurat_clusters", n = 10, outdir){
+    
+    pres <- presto:::wilcoxauc.Seurat(X = sobj,
+                                   group_by = group.by,
+                                   assay = 'data',
+                                   seurat_assay = 'RNA')
+    
+    # sort results by auc and take top 10 
+    pres.sort <- pres %>% arrange(group, desc(auc))
+    top10 <- pres.sort  %>% group_by(group) %>% slice_head(n = n)
+
+    dp <- DotPlot(object = sobj, assay = "RNA", features = unique(top10$feature), 
+		cols = c("lightblue", "darkblue"), cluster.idents = TRUE) + coord_flip()
+
+    suppressMessages(ggsave(filename = paste0("presto_dotplot.pdf"), plot = dp, device = "pdf", 
+		path = paste0(outdir), width = 14, height = 30))
+
+    write.top.n.xlsx(markers = pres.sort, file = paste0(outdir,"presto_res.xlsx"), group.by = "group", n = 100)
+    
+}
+
+
+fm_report <- function(res, sobj, outdir){
 	# summary of n diff genes per cluster, up down, combined 
 	### we want a barchart that is grouped (up, down) for each cluster celltype
 	### to do this begin by iterating through results
@@ -37,9 +81,9 @@ fm_report <- function(res, outdir){
 	}
 	res$status <- de.status
 	# write res table to file
-	tbl <- table(res$cluster, res$status)[,c(1,3)]
-	write.table(tbl, paste0(outdir, "fm_de_table.tsv"), sep = "    ",
-	    quote = FALSE, row.names = rownames(tbl))
+#	tbl <- table(res$cluster, res$status)[,c(1,3)]
+#	write.table(tbl, paste0(outdir, "fm_summary.txt"), sep = "    ",
+#	    quote = FALSE, row.names = TRUE)
 
 	### barplot 
 	res.de <- res[res$status == "up" | res$status == "down",]
@@ -57,48 +101,44 @@ fm_report <- function(res, outdir){
 		scale_x_continuous(breaks = seq(1,2))
         )
 	bp <- bp + scale_fill_manual(values=c("up" = "darkseagreen3", "down" = "cadetblue2"))
-	ggsave(filename = paste0("FM_barplot.pdf"), plot = bp, device = "pdf", 
+	ggsave(filename = paste0("fm_barplot.pdf"), plot = bp, device = "pdf", 
 	       path = outdir, width = 12)
+
+
+	# Filter res to top 10 marker per cluster
+	# aleady sorted by padj
+	res <- na.omit(res)
+	top12 <- res %>% group_by(cluster) %>% slice_head(n = 12)
 
 	### heatmap 
 	# res %>% group_by(cluster) %>% top_n(n = 10, wt = avg_log2FC) -> top10
 	#hmap <- DoHeatmap(sobj, features = top10$gene, slot = "scale.data") + NoLegend()
 	
-	dir.create(paste0(outdir, "plots/"), showWarnings = FALSE)
-	# nebulosa/ FeaturePlot and dotplot for top n gene per cluster
-	for (c in seq(0, max(res$cluster))){
-		# subset res for target cluster
-		res.c <- na.omit(res[res$cluster == c,])
-		# order subset by p.adj
-		res.o <- res.c[order(res.c$p_val_adj),]
-		# take top 12
-		genes <- res.o$gene
-
-		# create nebulosa plots 
-		#np <- plot_density(sobj, features = genes[1:9])
-		#np + plot_layout(ncol = 3)
-		# create dotplot and feature plot
-#		print(genes)
-		if (length(genes) > 12){
-		    dp <- DotPlot(sobj, features = genes[1:12]) + ggtitle(paste0("cluster ", c, " top 12 DEG"))
-		    dp + theme(axis.text.x = element_text(angle = 30, hjust = 1))
-		    fp <- suppressMessages(FeaturePlot(sobj, features = genes[1:12]) + ggtitle(paste0("cluster ", c, " top 12 DEG")))
-		} else {
-		    dp <- DotPlot(sobj, features = genes) + ggtitle(paste0("cluster ", c, " top 12 DEG"))
-		    dp + theme(axis.text.x = element_text(angle = 30, hjust = 1))
-		    fp <- suppressMessages(FeaturePlot(sobj, features = genes) + ggtitle(paste0("cluster ", c, " top 12 DEG")))
-		}
-		# save nebulosa plots
-		#pdf(file = paste0(outdir, "plots/ct_", c, "_nebulosa.pdf"), width = 12, height = 12)
-		#    print(np)
-		#dev.off()
-		# save dotplot
-		suppressMessages(ggsave(filename = paste0("ct_", c, "_FM_dotplot.pdf"), plot = dp, device = "pdf", 
-			path = paste0(outdir, "plots/"), width = 12))
-		suppressMessages(ggsave(filename = paste0("ct_", c, "_FM_featureplot.pdf"), plot = fp, device = "pdf", 
- 			path = paste0(outdir, "plots/"), width = 18, height = 18))
-
+	# iterate through clusters and create Feature plots of top 10 markers 
+	dir.create(paste0(outdir, "featureplots/"), showWarnings = FALSE)
+	for (c in unique(sobj$seurat_clusters)){ 
+  	    top12.sub <- top12[top12$cluster == c,]
+	    if (nrow(top12.sub) > 0){
+   	        fp <- suppressMessages(FeaturePlot(sobj, features = unique(top12.sub$gene), cols = c("lightblue", "darkblue"), 
+			raster=TRUE, order = TRUE))# +#plot_layout(ncol = 4) 
+ 	        suppressMessages(ggsave(filename = paste0("c", c, "_fm_featureplots.pdf"), plot = fp, device = "pdf", 
+		    path = paste0(outdir, "featureplots/"), width = 24, height = 20))
+	    }
 	}
+
+	# DotPlot of top 10
+	dp <- DotPlot(object = sobj, assay = "RNA", features = unique(top12$gene), 
+		cols = c("lightblue", "darkblue"), cluster.idents = TRUE) + coord_flip()
+	suppressMessages(ggsave(filename = paste0("fm_dotplot.pdf"), plot = dp, device = "pdf", 
+		path = paste0(outdir), width = 14, height = 30))
+	    
+	# save nebulosa plots
+	#pdf(file = paste0(outdir, "plots/ct_", c, "_nebulosa.pdf"), width = 12, height = 12)
+	#    print(np)
+	#dev.off()
+	# save dotplot
+	write.top.n.xlsx(markers = res, file = paste0(outdir,"fm_res.xlsx"), group.by = "cluster", n = 100)
+
 
 	return(res.de)
 }
@@ -113,6 +153,8 @@ fm_cProfiler<- function(res.de, outdir, organism = "human"){
 
 	for (c in seq(0, length(unique(res.de$cluster)))){
 	    res.cp <- res.de[res.de$cluster == c & res.de$status == "up",]
+	    
+	    print(paste0("N input genes for cluster ", c, ":  ", nrow(res.cp))) 
 	    if (nrow(res.cp) > 200){res.cp <- res.cp[1:200,]}
 	    
 	    # handle organism here
@@ -146,21 +188,7 @@ fm_cProfiler<- function(res.de, outdir, organism = "human"){
 	}
 }
 
-# Writes spreadsheet of top DE genes
-write.top.n.xlsx <- function(markers, outdir, group.by = "cluster", n = 100){
-    wb <- createWorkbook("TopMarkers")
 
-    for (c in unique(markers[[group.by]])){
-	if (c == 0){c <- "z"}
-        addWorksheet(wb, c)
-        tdf <- head(markers[markers[[group.by]] == c, ], n = n)
-        writeData(wb, sheet = c, x = tdf)
-    }
+# Change layering of feature plots
+# Change color scale of feature plots 
 
-    saveWorkbook(wb = wb, file = outdir, overwrite = TRUE)
-}
-
-
-#fm_kmeans <- function(){
-	# think about this later
-#}

@@ -560,3 +560,39 @@ dset_barplot <- function(sobj, dset.col = "orig.ident", stack.by = "seurat_clust
     
     return(bp)
 }
+
+
+comp_umap <- function(sobj, comparison, cond_col, anno_col){
+    cond1 <- comparison[[1]]
+    cond2 <- comparison[[2]]
+    
+    # Divide total cells in cond1 by total cells in cond2 
+    base.ratio <- table(sobj[[cond_col]])[cond1] / table(sobj[[cond_col]])[cond2]
+    # table of anno col * cond col
+    comp.table <- table(sobj@meta.data[,anno_col], sobj@meta.data[,cond_col])
+    # extract cond1 and cond2 columns as a df 
+    comp.df <- data.frame(cond1 = comp.table[,cond1], cond2 = comp.table[,cond2])
+    
+    
+    comp.df$ratio <- comp.df[,"cond1"] /  comp.df[,"cond2"]
+    comp.df$ratio.norm <- comp.df[,"ratio"] / base.ratio
+    comp.df$foldChange <- log2(comp.df$ratio.norm)
+    
+    ### Add the ratio to each cell in the object pertaining to that cluster 
+    ratio.list <- c()
+    for (c in sobj@meta.data[[anno_col]]){
+      #  print(c)
+        t.row <- comp.df[rownames(comp.df) == c,]
+        ratio.list <- append(ratio.list, t.row[,"foldChange"])
+
+    }
+    sobj[[paste0(cond1, "_", cond2, "_foldChange")]] <- ratio.list
+
+    FeaturePlot(object = sobj, features = paste0(cond1, "_", cond2, "_foldChange")) +
+        scale_color_gradient2(midpoint=0, low="blue", mid="cornsilk", high="red", space ="Lab", name = "FoldChange") +
+        ggtitle(paste0(cond1))
+    
+}
+
+
+
