@@ -1,0 +1,5 @@
+sample_name,protocol,organism,read1,read2,read_type
+QY_1671,ATAC,mouse,R1,R2,paired
+QY_1672,ATAC,mouse,R1,R2,paired
+QY_1673,ATAC,mouse,R1,R2,paired
+QY_1674,ATAC,mouse,R1,R2,paired
