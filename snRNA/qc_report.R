@@ -121,32 +121,32 @@ dset_barplot1.0 <- function(sobj, dset.col = "orig.ident", stack.by = "seurat_cl
 
 
 qc_report <- function(sobj, cluster.col = "seurat_clusters", condition.col = "condition", dataset.col = "orig.ident",
-                     outdir){
+                     norm.col = "orig.ident", outdir){
     
     ### UMAPS 
-    clust_umap <- DimPlot(sobj, group.by = cluster.col, label = TRUE, label.size = 6) +
+    clust_umap <- DimPlot(sobj, group.by = cluster.col, label = TRUE, label.size = 6, reduction = "umap") +
         ggtitle("color by celltype/cluster") + theme(text = element_text(size = 20, family="ArialMT"))  
     
-    cond_umap <- DimPlot(sobj, group.by = condition.col) + 
+    cond_umap <- DimPlot(sobj, group.by = condition.col, reduction = "umap") + 
         ggtitle("color by condition") + theme(text = element_text(size = 20, family="ArialMT")) 
     
-    dset_umap <- DimPlot(sobj, group.by = dataset.col) + 
+    dset_umap <- DimPlot(sobj, group.by = dataset.col, reduction = "umap") + 
         ggtitle("color by dataset") + theme(text = element_text(size = 20, family="ArialMT")) +
         theme(legend.position = "none")
     
     # save split by as independent plot. or subset
-    cond_split_umap <- DimPlot(sobj, split.by = condition.col) + 
+    cond_split_umap <- DimPlot(sobj, split.by = condition.col, reduction = "umap") + 
         ggtitle("") + theme(text = element_text(size = 20, family="ArialMT")) 
     
     
     ### Feature Plots
-    count_fp <- FeaturePlot(sobj, features = "nCount_RNA") + 
+    count_fp <- FeaturePlot(sobj, features = "nCount_RNA", reduction = "umap") + 
         ggtitle("nCount_RNA") + theme(text = element_text(size = 20, family="ArialMT"))
     
-    feat_fp <- FeaturePlot(sobj, features = "nFeature_RNA") + 
+    feat_fp <- FeaturePlot(sobj, features = "nFeature_RNA", reduction = "umap") + 
        ggtitle("nFeature_RNA") + theme(text = element_text(size = 20, family="ArialMT"))
    
-    mito_fp <- FeaturePlot(sobj, features = "percent.mt") + 
+    mito_fp <- FeaturePlot(sobj, features = "percent.mt", reduction = "umap") + 
         ggtitle("percent.mt") + theme(text = element_text(size = 20, family="ArialMT"))
 
     
@@ -165,6 +165,7 @@ qc_report <- function(sobj, cluster.col = "seurat_clusters", condition.col = "co
     
     
     ### Box Plots by dataset
+    #count_bp_d <- ggplot(sobj@meta.data, aes(x = .data[[dataset.col]], y = nCount_RNA)) + 
     count_bp_d <- ggplot(sobj@meta.data, aes(x = .data[[dataset.col]], y = nCount_RNA)) + 
       geom_boxplot() + ggtitle("nCounts per dataset") +
         theme(axis.text.x = element_text(angle = 20, vjust = 1, hjust=.5))
@@ -179,8 +180,11 @@ qc_report <- function(sobj, cluster.col = "seurat_clusters", condition.col = "co
     
     
     ## Normalized barplots (stack by condition & normalize by condition)
-    ct_barplot <- norm_cellquant_bplot2.0(sobj, dset.col = condition.col, xlab = cluster.col, stack.by = condition.col)
-    ## Normalized barplots (stack by dataset & normalize by dataset)
+#    ct_barplot <- norm_cellquant_bplot2.0(sobj, dset.col = condition.col, xlab = cluster.col, stack.by = condition.col)
+    ## stack by condition and normalize by dataset 
+    ct_barplot <- norm_cellquant_bplot2.0(sobj, dset.col = dataset.col, xlab = cluster.col, stack.by = condition.col)
+    ## Normalized barplots (stack by patient & normalize by dataset)
+#    dset_barplot <- norm_cellquant_bplot2.0(sobj, dset.col = dataset.col, xlab = cluster.col, stack.by = dataset.col)
     dset_barplot <- norm_cellquant_bplot2.0(sobj, dset.col = dataset.col, xlab = cluster.col, stack.by = dataset.col)
     ## Non normalized barplot (dataset by cluster) 
     d_barplot <- dset_barplot1.0(sobj, dset.col = dataset.col, stack.by = cluster.col)

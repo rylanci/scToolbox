@@ -8,15 +8,22 @@ suppressPackageStartupMessages(library(org.Mm.eg.db))
 ### This script will contain functions to run findmarkers and write a report on the output
 
 # Functions
-run_fm <- function(sobj, future = FALSE, n.workers = 1, idents = "seurat_clusters", logfc.threshold = 0.25){
-	if (future == TRUE){
-	    plan(multicore, workers = n.workers)
-	    options(future.globals.maxSize = 2000 * 1024^2)
-	}
-	Idents(sobj) <- idents
-	res <- FindAllMarkers(sobj, logfc.threshold = logfc.threshold)
+run_fm <- function(sobj, future = FALSE, n.workers = 1, prep.sct = FALSE, 
+    test = "wilcox", idents = "seurat_clusters", logfc.threshold = 0.25){
 
-	return(res)
+    if (future == TRUE){
+	plan(multicore, workers = n.workers)
+	options(future.globals.maxSize = 2000 * 1024^2)
+    }
+
+    if (prep.sct == TRUE){
+	sobj <- PrepSCTFindMarkers(sobj, assay = "SCT", verbose = FALSE)
+    }
+
+    Idents(sobj) <- idents
+    res <- FindAllMarkers(sobj, test.use = test, logfc.threshold = logfc.threshold)
+
+    return(res)
 }
 
 
@@ -25,7 +32,7 @@ write.top.n.xlsx <- function(markers, file, group.by = "cluster", n = 100){
     wb <- createWorkbook("TopMarkers")
 
     for (c in unique(markers[[group.by]])){
-	if (c == 0){c <- "z"}
+	if (c == 0){c <- "0"}
         addWorksheet(wb, c)
         tdf <- head(markers[markers[[group.by]] == c, ], n = n)
         writeData(wb, sheet = c, x = tdf)
