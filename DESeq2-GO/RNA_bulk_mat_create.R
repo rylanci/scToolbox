@@ -4,17 +4,19 @@ library(dplyr)
 library(stringr)
 library(argparse)
 
-process_args <- function(){
-# create parser object
-parser <- ArgumentParser(description = "Create seurat object from 10x h5 and collect QC metrics")
 
-required_arg_group = parser$add_argument_group('flagged required arguments', 
+### Functions 
+process_args <- function(){
+    # create parser object
+    parser <- ArgumentParser(description = "Create seurat object from 10x h5 and collect QC metrics")
+
+    required_arg_group = parser$add_argument_group('flagged required arguments', 
         'the script will fail if these args are not included')
 
-# These args belong to my group of required flagged arguments
+    # These args belong to my group of required flagged arguments
     required_arg_group$add_argument("-sobj", "--seurat_object", required = TRUE,
         help="path to dataset h5 file for object creation")
-
+    
     required_arg_group$add_argument("-dcol","--donor_column", required = TRUE,
         help="column containing id of the patient") 
 
@@ -31,6 +33,9 @@ required_arg_group = parser$add_argument_group('flagged required arguments',
         help="path to output directory")
 
     # optional args
+    parser$add_argument("-a", "--assay", default = "RNA", 
+        help="the assay containing the counts to bulk")
+
     parser$add_argument("-cov1","--covariate_column_1",
         help="column containing covariate group label 1")
 
@@ -45,7 +50,7 @@ required_arg_group = parser$add_argument_group('flagged required arguments',
 }
 
 
-bulk_matrix <- function(sobj = NULL, dset.col = "experiment", condi.col = "conditions", ct.col = "seurat_clusters", outdir = NULL, project = NULL){
+bulk_matrix <- function(sobj = NULL, assay = "RNA", dset.col = "experiment", condi.col = "conditions", ct.col = "seurat_clusters", outdir = NULL, project = NULL){
     dir.create(outdir, showWarnings = FALSE)
 
     # Begin iterating over target clusters for matrix creation
@@ -59,19 +64,19 @@ bulk_matrix <- function(sobj = NULL, dset.col = "experiment", condi.col = "condi
         dsets <- unique(sobj.c[[dset.col]])
 
         # Initialize bulk dataframe & set ident to dataset column
-        dset.frame <- data.frame(row.names = row.names(sobj.c@assays$RNA@counts))
+        dset.frame <- data.frame(row.names = row.names(sobj.c[[assay]]$counts))
         Idents(sobj.c) <- dset.col
 
         # Iterate over datasets in object. Sum rows of raw un-normalize matrix
         # Add result as column to bulk dataframe
         for (d in dsets[,1]){
             sobj.t <- subset(sobj.c, idents = d)
-            rsums <- rowSums(sobj.t@assays$RNA@counts)
+            rsums <- rowSums(sobj.t[[assay]]$counts)
             dset.frame[d] <- rsums
         }
 
         # Save bulk dataframe
-	ct <- str_replace_all(ct, "/", ".")
+    	ct <- str_replace_all(ct, "/", ".")
         print(head(dset.frame))
         print(dim(dset.frame))
 
@@ -131,31 +136,34 @@ create_DE_meta <- function(sobj = sobj, bulk.by = "orig.ident", col.by = "condit
 
 
 ### If name == main... Run...
-# Call argparse
-args <- process_args()
-# Read Object
-sobj <- readRDS(args$seurat_object)
+if (!interactive()) {
 
-print("****** bulk matrix creation inputs ******")
-print(paste0("sobj.path: ", args$seurat_object))
-print(paste0("dataset column: ", args$donor_column))
-print(unique(sobj[[args$donor_column]][,1]))
-print(paste0("condition column: ", args$condition_column))
-print(unique(sobj[[args$condition_column]][,1]))
-print(paste0("celltype column: ", args$celltype_column))
-print(unique(sobj[[args$celltype_column]][,1]))
-print(paste0(" ouput dir: ", args$output_directory))
-print(paste0("project: ", args$project_name))
+    # Call argparse
+    args <- process_args()
+    # Read Object
+    sobj <- readRDS(args$seurat_object)
 
-# Create Matrices
-bulk_matrix(sobj = sobj, dset.col = args$donor_column, ct.col = args$celltype_column, condi.col = args$condition_column, 
-	outdir = args$output_directory, project = args$project_name)
+    print("****** bulk matrix creation inputs ******")
+    print(paste0("sobj.path: ", args$seurat_object))
+    print(paste0("assay: ", args$assay))
+    print(paste0("dataset column: ", args$donor_column))
+    print(unique(sobj[[args$donor_column]][,1]))
+    print(paste0("condition column: ", args$condition_column))
+    print(unique(sobj[[args$condition_column]][,1]))
+    print(paste0("celltype column: ", args$celltype_column))
+    print(unique(sobj[[args$celltype_column]][,1]))
+    print(paste0(" ouput dir: ", args$output_directory))
+    print(paste0("project: ", args$project_name))
 
-DO_meta <- create_DE_meta(sobj = sobj, bulk.by = args$donor_column, col.by = args$condition_column, 
-	add_cov1 = args$covariate_column_1, add_cov2 = args$covariate_column_2, add_cov3 = args$covariate_column_3)
-DO_meta$type <-  "paired-end" 
+    # Create Matrices
+    bulk_matrix(sobj = sobj, assay = args$assay, dset.col = args$donor_column, ct.col = args$celltype_column, condi.col = args$condition_column, 
+        outdir = args$output_directory, project = args$project_name)
 
-write.csv(DO_meta, file = paste0(args$output_directory, args$project_name, "_metadata.csv"))
+    DO_meta <- create_DE_meta(sobj = sobj, bulk.by = args$donor_column, col.by = args$condition_column, 
+        add_cov1 = args$covariate_column_1, add_cov2 = args$covariate_column_2, add_cov3 = args$covariate_column_3)
+    DO_meta$type <-  "paired-end" 
 
+    write.csv(DO_meta, file = paste0(args$output_directory, args$project_name, "_metadata.csv"))
+}
 
 
