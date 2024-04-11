@@ -22,12 +22,6 @@ process_args <- function(){
         'the script will fail if these args are not included')
 
     # These args belong to my group of required flagged arguments
-    required_arg_group$add_argument("-sobj", "--seurat_object", required = TRUE,
-        help="path to dataset h5 file for object creation")
-
-    required_arg_group$add_argument("-ctcol","--celltype_column", required = TRUE,
-        help="column containing id of the patient")
-
     required_arg_group$add_argument("-mpath","--matrix_path", required = TRUE,
         help="column containing condition group")
 
@@ -194,10 +188,9 @@ filt.features <- function(blk.matrix, meta, n, comp_pair){
 }
 
 
-pseudoBulk_DE <- function(sobj.path, matrices.path, ct.col = "seurat_clusters", padj_threshold, log2FC_threshold,
+pseudoBulk_DE <- function(matrices.path, padj_threshold, log2FC_threshold,
 				output_dir, project_name, comps,  nfeatures = 0){
     print("Initiating DESeq Pipeline")
-    seuObj <- readRDS(sobj.path)
     comp.table <- read.table(comps, header = T, sep = "\t")
 
     # Format numerical values
@@ -207,13 +200,12 @@ pseudoBulk_DE <- function(sobj.path, matrices.path, ct.col = "seurat_clusters", 
     ### Create output outdirs
     dir.create(output_dir, showWarnings = FALSE)
     dir.create(paste0(output_dir,"DESeq_out"), showWarnings = FALSE)
+    dir.create(paste0(output_dir, "Normalized_Matrices"), showWarnings = FALSE)
 
-    if (ct.col == "seurat_clusters"){
-        cell_type <- sort.int(unique(seuObj[[ct.col]])[,1])
-    } else {
-        cell_type <- unique(seuObj[[ct.col]])[,1]
-        cell_type <- str_replace_all(cell_type, "/", ".")
-    }
+    mat.files <- list.files(matrices.path)
+    ct.files1 <- str_remove(string = mat.files, pattern = "_bulk_matrix.csv")
+    cell_type <- str_remove(string = ct.files1, pattern = paste0(project_name, "_"))
+
 
     ### Iterate through celltypes. Run DESeq. Iterate through comparisons. Extract results. Call Go.
     for (c in cell_type){
@@ -243,7 +235,7 @@ pseudoBulk_DE <- function(sobj.path, matrices.path, ct.col = "seurat_clusters", 
 	
       	### Begin iterating through comparisons to extract results for each group
         for (i in 1:num_pairs){
-       	    	cpair <- pair_list[,i]
+       	    cpair <- pair_list[,i]
 	        cond1 <- cpair[1]
 	        cond2 <- cpair[2]
 
@@ -299,8 +291,12 @@ pseudoBulk_DE <- function(sobj.path, matrices.path, ct.col = "seurat_clusters", 
                 deseq_results <- DESeqDataSetFromMatrix(countData = blk.mat.comp.filt, 
                         colData = sub.meta.comp, design = ~ condition)
 		    }
-
             deseq_results <- DESeq(deseq_results)
+
+            # Write normalized counts to file
+            nmat_file <- paste0(output_dir, "Normalized_Matrices/","Normalized_", c, "_" , condPair, ".csv")
+            write.csv(counts(deseq_results, normalized=TRUE), file=nmat_file, quote=FALSE) 
+
             ############ Declare comparison so direction of results are known ##############
             final <- results(deseq_results, contrast = c("condition", cond1, cond2))
             # keep only if both padj and log2FC is NOT NA
@@ -353,7 +349,6 @@ args <- process_args()
 
 ### Record input
 print("****** DE Pipeline Inputs ******")
-print(paste0("sobj.path: ", args$seurat_object))
 print(paste0("matrices.path: ", args$matrix_path))
 print(paste0("adjusted.pval: ", args$padj_threshold))
 print(paste0("log2FC.thres: ", args$log2FC_threshold))
@@ -365,9 +360,9 @@ print(paste0("n features: ", args$n_features))
 print("comparisons: ")
 print(read.table(args$comparisons, header = T, sep = "\t"))
 
-pseudoBulk_DE(sobj.path = args$seurat_object, ct.col = args$celltype_column, matrices.path = args$matrix_path,
-                padj_threshold = args$padj_threshold, log2FC_threshold = args$log2FC_threshold, output_dir = args$output_path,
-                project_name = args$project_name, comps = args$comparisons, nfeatures = args$n_features)
+
+pseudoBulk_DE(matrices.path = args$matrix_path, padj_threshold = args$padj_threshold, log2FC_threshold = args$log2FC_threshold, 
+              output_dir = args$output_path, project_name = args$project_name, comps = args$comparisons, nfeatures = args$n_features)
 
 
 # Features to add:
