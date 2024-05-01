@@ -193,7 +193,7 @@ pseudoBulk_DE <- function(matrices.path, padj_threshold, log2FC_threshold,
     print("Initiating DESeq Pipeline")
     comp.table <- read.table(comps, header = T, sep = "\t")
 
-    # Format numerical values
+    # Format numerical values... do this in argparse  ****
     padj_threshold <- as.double(padj_threshold)
     log2FC_threshold <- as.double(log2FC_threshold)
 
@@ -201,10 +201,17 @@ pseudoBulk_DE <- function(matrices.path, padj_threshold, log2FC_threshold,
     dir.create(output_dir, showWarnings = FALSE)
     dir.create(paste0(output_dir,"DESeq_out"), showWarnings = FALSE)
     dir.create(paste0(output_dir, "Normalized_Matrices"), showWarnings = FALSE)
+    dir.create(paste0(output_dir, "Significant_Results"), showWarnings = FALSE)
 
-    mat.files <- list.files(matrices.path)
+    # Set up matrices and celltypes 
+    metadata <- read.csv(paste(matrices.path, project_name,"_metadata.csv", sep=""), sep=',', header=TRUE,
+            row.names = 1, stringsAsFactors=FALSE)
+
+    mat.files <- grep(pattern = "bulk_matrix", x = list.files(matrices.path), value = TRUE)
     ct.files1 <- str_remove(string = mat.files, pattern = "_bulk_matrix.csv")
     cell_type <- str_remove(string = ct.files1, pattern = paste0(project_name, "_"))
+    print("Celltypes for DE:")
+    print(cell_type)
 
 
     ### Iterate through celltypes. Run DESeq. Iterate through comparisons. Extract results. Call Go.
@@ -215,10 +222,7 @@ pseudoBulk_DE <- function(matrices.path, padj_threshold, log2FC_threshold,
       	blk.matrix <- read.csv(paste(matrices.path, project_name, "_", c, "_bulk_matrix.csv", sep=""), sep=',',
             header=TRUE, row.names=1, stringsAsFactors=FALSE)
 
-      	metadata <- read.csv(paste(matrices.path, project_name,"_metadata.csv", sep=""), sep=',', header=TRUE,
-            row.names = 1, stringsAsFactors=FALSE)
-
-        ### subset metadata for donors in celltype blk matrix
+      	        ### subset metadata for donors in celltype blk matrix
         sub.meta <- subset(metadata, row.names(metadata) %in% colnames(blk.matrix))
 
 	    ### No longer has pairwise comparison option
@@ -228,11 +232,6 @@ pseudoBulk_DE <- function(matrices.path, padj_threshold, log2FC_threshold,
       	pair_list <- t(comp.table)
     	formulas <- comp.table[,"Formula"]
 
-        # initialize results summary with header 
-#        header <- paste0("Celltype", "Direction", "Comparison", "nDEG", "Formula", "Comp1 Donors", "Comp2 Donors", sep = "\t")
-#        write.table(header, paste(output_dir, "DEG_countSummary.txt", sep=""), quote=FALSE, row.names=FALSE, col.names=FALSE)
-
-	
       	### Begin iterating through comparisons to extract results for each group
         for (i in 1:num_pairs){
        	    cpair <- pair_list[,i]
@@ -270,8 +269,8 @@ pseudoBulk_DE <- function(matrices.path, padj_threshold, log2FC_threshold,
             blk.mat.comp2 <- subset(blk.mat.comp, select = rownames(sub.meta.comp2)) 
             comp1.donors <- colnames(blk.mat.comp1)
             comp2.donors <- colnames(blk.mat.comp2)
-            print(paste0("Comp1 donors: ", comp1.donors))
-            print(paste0("Comp2 donors: ", comp2.donors))
+            print(paste0("N ", cond1, " donors: ", length(comp1.donors)))
+            print(paste0("N ", cond2," donors: ", length(comp2.donors)))
 
             ### ************ else if condi = active | chronic batch add TOD as covariate 
             if (length(comp1.donors) > 1 & length(comp2.donors) > 1 & length(pass.features) >= 100){
@@ -312,7 +311,7 @@ pseudoBulk_DE <- function(matrices.path, padj_threshold, log2FC_threshold,
             # set adjusted pval cutoff.
             pfinal <- final[final$padj < padj_threshold, ]
             # use deseq results and separate by UP and DOWN-regulated for enrichr
-            dwn <- pfinal[pfinal$log2FoldChange < log2FC_threshold, ]
+            dwn <- pfinal[pfinal$log2FoldChange < -log2FC_threshold, ]
             summarylist <- c(summarylist, paste(c, "DOWN", condPair, nrow(dwn), form_used, sep = "\t"))
 
             up <- pfinal[pfinal$log2FoldChange > log2FC_threshold, ]
@@ -321,8 +320,11 @@ pseudoBulk_DE <- function(matrices.path, padj_threshold, log2FC_threshold,
             combined <- pfinal[pfinal$log2FoldChange < -log2FC_threshold | pfinal$log2FoldChange > log2FC_threshold, ]
             summarylist <- c(summarylist, paste(c, "COMBINED", condPair, nrow(combined), form_used, sep = "\t"))
 
-            write.table(summarylist, paste(output_dir, "DEG_countSummary.txt", sep=""), quote=FALSE, row.names=FALSE, col.names=FALSE, append=TRUE)
+            if (nrow(combined) > 0){
+                write.table(combined, paste0(output_dir, "Significant_Results/","Sig_", c, "_" , condPair, ".csv", sep=""))
+            }
 
+            write.table(summarylist, paste(output_dir, "DEG_countSummary.txt", sep=""), quote=FALSE, row.names=FALSE, col.names=FALSE, append=TRUE)
             } else {
                 # Deseq won't run if these conditions aren't met
                 print("not enough replicates to run DESeq for comparison")

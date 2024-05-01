@@ -411,7 +411,7 @@ run_Report <- function(path, p.thresh = .05, lfc.thresh = .58){
 }
 
 
-createHeatmap <- function(res, bulk.mat, meta, conditions, q.thresh = 0.05, lfc.thresh = 1){
+createHeatmap <- function(res, bulk.mat, meta, conditions, q.thresh, lfc.thresh){
     print("create heatmap")
 
     # Extract donors per condition in metadata
@@ -430,11 +430,11 @@ createHeatmap <- function(res, bulk.mat, meta, conditions, q.thresh = 0.05, lfc.
 
     # Filter by .1
     dtable.f <- res[res$padj < q.thresh,]
-
+    print(paste0("# deg after q filter:", nrow(dtable.f)))
     ### Gather our Combined features, UP features, and DWN features
-    dtable.comb <- dtable.f[dtable.f$log2FoldChange > lfc.thresh | dtable.f$log2FoldChange < -lfc.thresh,]
+    dtable.comb <- dtable.f[which(dtable.f$log2FoldChange > lfc.thresh | dtable.f$log2FoldChange < -lfc.thresh),]
     dtable.comb <- dtable.comb[order(dtable.comb$log2FoldChange, decreasing = TRUE), ]
-	print(paste0("# deg: ", nrow(dtable.comb)))
+	print(paste0("# deg after lfc filter: ", nrow(dtable.comb)))
 	
 	if (nrow(dtable.comb) > 1){
 
@@ -491,7 +491,7 @@ createHeatmap <- function(res, bulk.mat, meta, conditions, q.thresh = 0.05, lfc.
 }
 
 
-runHeatmaps <- function(path, mat.path, q.thresh = 0.05, lfc.thresh = 1, proj_name){
+runHeatmaps <- function(path, mat.path, q.thresh, lfc.thresh, proj_name){
 	print("Begin Creating Heatmaps")
 
     rdir <- paste0(path, "Heatmaps/")

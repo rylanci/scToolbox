@@ -685,18 +685,18 @@ runBarplot <- function(path, sobj.path, celltype.col){
 args <- process_args()
 
 
-#run_CP(path = args$results_path, organism = args$organism, log2FC_threshold = args$log2FC_threshold, 
-#       padj_threshold = args$padj_threshold)
+run_CP(path = args$results_path, organism = args$organism, log2FC_threshold = args$log2FC_threshold, 
+       padj_threshold = args$padj_threshold)
 
 
-#run_Report(path = args$results_path, lfc.thresh = args$log2FC_threshold,
-#           p.thresh = args$padj_threshold)
+run_Report(path = args$results_path, lfc.thresh = args$log2FC_threshold,
+           p.thresh = args$padj_threshold)
 
-#runBarplot(path = args$results_path, sobj.path = args$sobj_path, celltype.col = args$celltype_col) 
+runBarplot(path = args$results_path, sobj.path = args$sobj_path, celltype.col = args$celltype_col) 
 
 
-runHeatmaps(path = args$results_path, mat.path  = args$matrix_path, q.thresh = args$padj_threshold, 
-             lfc.thresh = args$log2FC_threshold, proj_name = args$project_name)
+#runHeatmaps(path = args$results_path, mat.path  = args$matrix_path, q.thresh = args$padj_threshold, 
+#             lfc.thresh = args$log2FC_threshold, proj_name = args$project_name)
 
 
 
