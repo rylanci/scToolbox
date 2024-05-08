@@ -13,10 +13,10 @@ suppressPackageStartupMessages(library(viridis))
 suppressPackageStartupMessages(library(reshape2))
 suppressPackageStartupMessages(library(dplyr))
 suppressPackageStartupMessages(library(ComplexHeatmap))
+source("/tscc/nfs/home/rlancione/scToolbox/DESeq2-GO/great.R")
+
 
 #Note: This module contains functions and performs actions for  post DE reporting
-
-### Functions 
 ### Functions
 process_args <- function(){
     # create parser object
@@ -613,9 +613,8 @@ runBarplot <- function(path, sobj.path, celltype.col){
 ## Aquire inputs
 args <- process_args()
 
-
-#run_CP(path = args$results_path, organism = args$organism, log2FC_threshold = args$log2FC_threshold, 
-#       padj_threshold = args$padj_threshold)
+#sourced from great.R
+iterate_rGreat(path_to_res = paste0(args$results_path, "Significant_Results/", outdir = args$results_path)
 
 
 run_Report(path = args$results_path, lfc.thresh = args$log2FC_threshold,
