@@ -614,7 +614,7 @@ runBarplot <- function(path, sobj.path, celltype.col){
 args <- process_args()
 
 #sourced from great.R
-iterate_rGreat(path_to_res = paste0(args$results_path, "Significant_Results/", outdir = args$results_path)
+iterate_rGreat(path_to_res = paste0(args$results_path, "Significant_Results/"), outdir = args$results_path)
 
 
 run_Report(path = args$results_path, lfc.thresh = args$log2FC_threshold,

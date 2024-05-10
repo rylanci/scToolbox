@@ -1,17 +1,18 @@
 suppressPackageStartupMessages(library(Seurat))
-suppressPackageStartupMessages(library(clusterProfiler))
-suppressPackageStartupMessages(library(ReactomePA))
+#suppressPackageStartupMessages(library(clusterProfiler))
+#suppressPackageStartupMessages(library(ReactomePA))
 suppressPackageStartupMessages(library(argparse))
 suppressPackageStartupMessages(library(stringr))
 suppressPackageStartupMessages(library(tableHTML))
 suppressPackageStartupMessages(library(ggplot2))
-suppressPackageStartupMessages(library(org.Hs.eg.db))
-suppressPackageStartupMessages(library(org.Mm.eg.db))
+#suppressPackageStartupMessages(library(org.Hs.eg.db))
+#suppressPackageStartupMessages(library(org.Mm.eg.db))
 suppressPackageStartupMessages(library(gridExtra))
 suppressPackageStartupMessages(library(viridis))
 suppressPackageStartupMessages(library(reshape2))
 suppressPackageStartupMessages(library(dplyr))
 suppressPackageStartupMessages(library(ComplexHeatmap))
+library(ggrepel)
 
 #Note: This module contains functions and performs actions for  post DE reporting
 
@@ -53,14 +54,63 @@ process_args <- function(){
     parser$add_argument("-comp","--comparisons",
         help="path to tsv containing comparisons. Use header: Target  Reference")
 
+    parser$add_argument("-run_cp","--run_ClusterProfiler", default = TRUE,
+        help="if FALSE skips clusterProfiler")
+
+
 
     args <- parser$parse_args()
     return(args)
 }
 
 
-createReport <- function(res, fname, p.thresh = .05, lfc.thresh = .58){
 
+create_vplot <- function(res.df, comparison, lfc.thresh = 1, p.thresh = 0.05){
+    
+#    res.df <- read.csv(res.file, sep = ',', header=TRUE, row.names=1, stringsAsFactors=FALSE)
+
+    pass.padj.lfc <- (res.df$log2FoldChange >= lfc.thresh | res.df$log2FoldChange <= -lfc.thresh) & res.df$padj <= p.thresh
+    res.df$threshold <- pass.padj.lfc
+
+    res.df.sig <- res.df[res.df$threshold == "TRUE",]
+    res.df.sig.o <- res.df.sig[order(res.df.sig$log2FoldChange),]
+    label_mtx <- rbind(head(res.df.sig.o, n=10), # grabbing top 10 up and down log2FC
+                       head(res.df.sig.o[order(-log10(res.df.sig.o$padj), decreasing = T),], n=10))
+
+    label_mtx <- unique(label_mtx)
+    label_mtx$labels <- rownames(label_mtx)
+
+    
+    
+    vplot <- ggplot(data=res.df, aes(x=log2FoldChange, y=-log10(padj), col=threshold)) +
+      geom_point(alpha=0.4, size=1.8) +
+      geom_vline(xintercept=c(-lfc.thresh, lfc.thresh), col="black") +
+      geom_hline(yintercept=-log10(p.thresh), col="black") +
+#          ylim(c(0, max(res.df$log2FoldChange))) +
+      xlab("Log2FoldChange") +
+      ylab("-Log10(p.adj)") +
+      theme(axis.title.x = element_text(face = "bold", size = 15),
+            axis.text.x = element_text(face = "bold", size = 12)) +
+      theme(axis.title.y = element_text(face = "bold", size = 15),
+            axis.text.y = element_text(face = "bold", size = 12)) +
+      scale_colour_discrete(name = "pass thresh") +
+      theme(legend.title = element_text(face = "bold", size = 15)) +
+      theme(legend.text = element_text(size = 14)) +
+      ggtitle(comparison) + theme_classic() + theme(aspect.ratio=1) +
+      scale_colour_manual(values = c("grey", "blue")) + 
+	  geom_text_repel(data=label_mtx, aes(x=log2FoldChange, y=-log10(padj), 
+			label=labels),colour="black", vjust="inward",hjust="inward")
+    
+
+    
+#    ggsave(filename = paste0("test_out/", comparison, ".pdf"), plot = vplot)
+    return(vplot)
+}
+
+
+createReport <- function(res, fname, p.thresh = .05, lfc.thresh = .58, outdir){
+	
+	print(fname)
     ## Set up and determine passed features in our results for plotting
     res.df <- as.data.frame(res)
     ## Sort results by adjusted p-values
@@ -76,6 +126,7 @@ createReport <- function(res, fname, p.thresh = .05, lfc.thresh = .58){
 
     ### Create MA Plot
     maplot <- ggplot(data=res.df, aes(x=log10(baseMean), y=log2FoldChange, colour=threshold)) +
+		  theme_classic() + 
           geom_point(alpha=0.4, size=1.8) +
           geom_hline(aes(yintercept = 0), colour = "black", size = 1.2) +
     #      ylim(c(min(res.df$log2FoldChange), max(res.df$log2FoldChange))) +
@@ -88,7 +139,7 @@ createReport <- function(res, fname, p.thresh = .05, lfc.thresh = .58){
           scale_colour_discrete(name = "pass thresh") +
           theme(legend.title = element_text(face = "bold", size = 15)) +
           theme(legend.text = element_text(size = 14)) +
-          ggtitle(fname)
+          ggtitle(fname) + theme_classic() + theme(aspect.ratio=1) 
 
     ### Create volcano Plot
     vplot <- ggplot(data=res.df, aes(x=log2FoldChange, y=-log10(padj), col=threshold)) +
@@ -105,7 +156,14 @@ createReport <- function(res, fname, p.thresh = .05, lfc.thresh = .58){
           scale_colour_discrete(name = "pass thresh") +
           theme(legend.title = element_text(face = "bold", size = 15)) +
           theme(legend.text = element_text(size = 14)) +
-          ggtitle(fname)
+          ggtitle(fname) + theme_classic() + theme(aspect.ratio=1) 
+
+
+
+	vplot2 <- create_vplot(res = res, comparison = fname)
+
+	ggsave(filename = paste0(fname, "_vplot.pdf"), plot = vplot2, device = "pdf", path = paste0(outdir, "Volcano_Plots/"), 
+		width = 8, height = 8)
 
     ## Split features by different p-value cutoffs
     pval_table <- lapply(c(0.001, 0.01, 0.025, 0.05, 0.1, 0.2, 0.3, 0.4, 0.5), function(x) {
@@ -117,7 +175,7 @@ createReport <- function(res, fname, p.thresh = .05, lfc.thresh = .58){
     tgrob <- tableGrob(pval_table)
 
     ### add plots to list and return list
-    plot.list <- list(maplot, vplot, tgrob)
+    plot.list <- list(maplot, vplot2, tgrob)
     return(plot.list)
 
 }
@@ -404,7 +462,9 @@ clusterProfiler_GO <- function(DE.table, fname, universe = NULL, log2FC_threshol
 
 
 #### Function that iterates over DE output matrices and runs cluster profiler 
-run_CP <- function(path, organism = organism, log2FC_threshold = .58, padj_threshold = 0.1){
+run_CP <- function(path, organism = organism, log2FC_threshold = .58, padj_threshold = 0.1, run_cp){
+
+	if (run_cp == FALSE){return(print("skipping cluster profiler"))}
 
 	## Used to read deseq output 
 	de_path <- paste0(path, "/DESeq_out/")
@@ -445,9 +505,12 @@ run_CP <- function(path, organism = organism, log2FC_threshold = .58, padj_thres
 #### Function that iterates over celltypes and runs DE report 
 run_Report <- function(path, p.thresh = .05, lfc.thresh = .58){
 
+	print("Generating Reports")
+
     de_path <- paste0(path, "/DESeq_out/")
     rdir <- paste0(path, "DEreports/")
     dir.create(rdir, showWarnings = FALSE)
+	dir.create(paste0(rdir, "Volcano_Plots/"), showWarnings = FALSE)
     res_files <- list.files(de_path)
 
     deg_sum <- read.table(paste0(path, "DEG_countSummary.txt"), sep = '\t', header=TRUE)
@@ -469,14 +532,15 @@ run_Report <- function(path, p.thresh = .05, lfc.thresh = .58){
             fpre <- str_remove(string = fpre, pattern = ("DESeq2_")) 
 
             plots <- createReport(res = res, fname = fpre, p.thresh = as.double(p.thresh), 
-                                  lfc.thresh = as.double(lfc.thresh)) 
+                                  lfc.thresh = as.double(lfc.thresh), outdir = rdir) 
+
             plot.list <- append(plot.list, plots)	   
     	}
 
     	if(length(plot.list) > 0){
-             pdf(file = paste0(rdir,  c, "_report.pdf"), width = 16, height = length(plot.list) * 2)
+        	pdf(file = paste0(rdir,  c, "_report.pdf"), width = 16, height = length(plot.list) * 2)
                  do.call("grid.arrange", c(plot.list, ncol=3))
-	     dev.off()
+	     	dev.off()
     	}         
     }
 }
@@ -658,6 +722,8 @@ mirror.DEG.barplot <- function(DEG_sum, seuratObj, celltype.col, comparison){
 
 runBarplot <- function(path, sobj.path, celltype.col){
     ### Create barplots for each comparison
+
+	print("Generating barplots")
     sobj <- readRDS(sobj.path)
     dir.create(paste0(path, "SummaryBarplots/"), showWarning = FALSE)
     rdir <- paste0(path, "SummaryBarplots/")
@@ -686,11 +752,12 @@ args <- process_args()
 
 
 run_CP(path = args$results_path, organism = args$organism, log2FC_threshold = args$log2FC_threshold, 
-       padj_threshold = args$padj_threshold)
+       padj_threshold = args$padj_threshold, run_cp = args$run_ClusterProfiler)
 
 
 run_Report(path = args$results_path, lfc.thresh = args$log2FC_threshold,
            p.thresh = args$padj_threshold)
+
 
 runBarplot(path = args$results_path, sobj.path = args$sobj_path, celltype.col = args$celltype_col) 
 
