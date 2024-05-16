@@ -39,6 +39,11 @@ process_args <- function(){
         help="number of cores to run FindMarkers with", 
         default = 12)
 
+    parser$add_argument("-u","--universe",
+        help="whether to use clusterProfiler universe (background)", 
+        default = FALSE)
+
+
     args <- parser$parse_args()
     return(args)
 }
@@ -82,5 +87,11 @@ write.table(res, paste0(odir, "fm_res.txt"))
 
 run_presto(sobj = sobj, outdir = odir)
 
-fm_cProfiler(res.de = res.de, outdir = odir)
+if (args$universe){
+	print("Utilizing CP universe")
+	genes <- extract_detected_features(sobj)
+	fm_cProfiler(res.de = res.de, outdir = odir, universe = genes)
+else {
+	fm_cProfiler(res.de = res.de, outdir = odir, universe = NULL)
+}
 

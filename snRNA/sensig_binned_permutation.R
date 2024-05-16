@@ -217,7 +217,7 @@ sensig_report <- function(sobj, name, sig.thresh, score.col, condi.col, sensig_g
           scale_colour_discrete(name = "status") +
           theme(legend.title = element_text(face = "bold", size = 15)) +
           theme(legend.text = element_text(size = 14)) +
-          ggtitle("score by pval")
+          ggtitle("score by pval") + theme_light(aspect.ratio = 1)
     # Volcano of score by q 
     vplot.q <- ggplot(data=sobj@meta.data, aes(x=sensig_150_v2, y=.data[[paste0(sensig.col.qval, "_log10")]], col=.data[[sensig.col.qsig]])) +
           geom_point(alpha=0.4, size=1.8) +
@@ -233,17 +233,18 @@ sensig_report <- function(sobj, name, sig.thresh, score.col, condi.col, sensig_g
           scale_colour_discrete(name = "status") +
           theme(legend.title = element_text(face = "bold", size = 15)) +
           theme(legend.text = element_text(size = 14)) +
-          ggtitle("score by qval")
+          ggtitle("score by qval") + theme_light(aspect.ratio = 1)
     
     
     # scater plots. Score by count colored by sig 
     splot.p <- ggplot(sobj@meta.data %>% arrange(sobj[[sensig.col.psig]]), 
                       aes(x= sensig_150_v2, y=nCount_RNA, color=.data[[sensig.col.psig]])) + 
-        geom_point()
-    
+        geom_point() + theme_light(aspect.ratio = 1)
+
+
     splot.q <- ggplot(sobj@meta.data %>% arrange(sobj[[sensig.col.qsig]]), 
                       aes(x= sensig_150_v2, y=nCount_RNA, color=.data[[sensig.col.qsig]])) + 
-        geom_point()
+        geom_point() + theme_light(aspect.ratio = 1)
 
     
     #print(max(sobj[[paste0(sensig.col.pval, "_log10")]]))
@@ -262,13 +263,14 @@ sensig_report <- function(sobj, name, sig.thresh, score.col, condi.col, sensig_g
     
     
     rankplot <- ggplot(adf, aes(x=gene, y=mean_score)) + 
-      geom_bar(stat = "identity") + coord_flip() + ggtitle("Top 25 sensig genes (padj)")
+      geom_bar(stat = "identity") + coord_flip() + ggtitle("Top 25 sensig genes (padj)") +
+      theme_light(aspect.ratio = 1)
+
     
     dotplot <- suppressWarnings(DotPlot(sobj, features = rev(adf$gene), 
                     group.by = "sensig_150_bin_0.05_qsig", cols = c("lightgrey", "cyan4"))) + 
-                    coord_flip()
+                    coord_flip() + theme_light(aspect.ratio = 1)
     
-   
     
     pdf(file = file, width = 24, height = 16)
     grid.arrange(feat.s, dim.c, feat.p, feat.q, dim.p, dim.q, vplot.p, vplot.q, splot.p, splot.q,

@@ -151,7 +151,7 @@ fm_report <- function(res, sobj, outdir){
 }
 
 
-fm_cProfiler<- function(res.de, outdir, organism = "human"){
+fm_cProfiler<- function(res.de, outdir, organism = "human", universe = args$universe){
 	# run cluster profiler on the up/down from each cluster
 	# top 200
 	dir.create(paste0(outdir, "CP_out/"), showWarnings = FALSE)
@@ -173,10 +173,10 @@ fm_cProfiler<- function(res.de, outdir, organism = "human"){
 
 
 	    ego_bp <- suppressMessages(
-		enrichGO(gene = res.cp$gene,
+			enrichGO(gene = res.cp$gene,
                     OrgDb = org.db,
                     keyType = 'SYMBOL',
-                    universe = NULL, 
+                    universe = universe, 
                     ont = "BP",
                     pAdjustMethod = "BH",
                     pvalueCutoff = 1,
@@ -184,17 +184,24 @@ fm_cProfiler<- function(res.de, outdir, organism = "human"){
 
 	    if (!is.null(ego_bp)){
 	        write.table(ego_bp@result, file = paste0(outdir,"CP_out/tables/ct_", c, "_CP_BP_go.csv"))
-		write_tableHTML(tableHTML(ego_bp@result), file = 
+			write_tableHTML(tableHTML(ego_bp@result), file = 
 		    paste0(outdir,"CP_out/tables/ct_", c, "_CP_BP_go.html"))
 
-		p2 <- dotplot(ego_bp, showCategory=20) + ggtitle("biological process")
-		fn2<- paste0("ct_", c, "_CP_BP_DTPLT.pdf")
-		suppressMessages(ggsave(filename = fn2, plot = p2, device = "pdf", 
+			p2 <- dotplot(ego_bp, showCategory=20) + ggtitle("biological process")
+			fn2<- paste0("ct_", c, "_CP_BP_DTPLT.pdf")
+			suppressMessages(ggsave(filename = fn2, plot = p2, device = "pdf", 
 					path = paste0(outdir, "CP_out/plots/"),  height = 10))
 	    }
 	}
 }
 
+
+extract_detected_features <- function(sobj){
+    sums <- rowSums(sobj@assays$RNA@counts)
+    detected_genes <- names(sums[sums > 0])
+
+    return(detect_genes)
+}
 
 # Change layering of feature plots
 # Change color scale of feature plots 
