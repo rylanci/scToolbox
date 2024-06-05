@@ -496,8 +496,9 @@ norm_cellquant_bplot2 <- function (sobj, dset.col = "orig.ident", xlab = "seurat
     norm.df[[stack.by]] <- vars
     
     # melt dataframe for ggplot
-    norm.df.m <- melt(t, id = stack.by)
-    
+    norm.df.m <- melt(norm.df, id = stack.by)
+
+#    print(norm.df)
     ### plotting 
     cols <- c("cadetblue4", "lightgoldenrod", "salmon", 
         "paleturquoise3","palegreen3", "mediumpurple1", "salmon", 
@@ -562,7 +563,7 @@ dset_barplot <- function(sobj, dset.col = "orig.ident", stack.by = "seurat_clust
 }
 
 
-comp_umap <- function(sobj, comparison, cond_col, anno_col){
+comp_umap <- function(sobj, comparison, cond_col, anno_col, reduction = "umap"){
     cond1 <- comparison[[1]]
     cond2 <- comparison[[2]]
     
@@ -588,7 +589,7 @@ comp_umap <- function(sobj, comparison, cond_col, anno_col){
     }
     sobj[[paste0(cond1, "_", cond2, "_foldChange")]] <- ratio.list
 
-    FeaturePlot(object = sobj, features = paste0(cond1, "_", cond2, "_foldChange")) +
+    FeaturePlot(object = sobj, reduction = reduction, features = paste0(cond1, "_", cond2, "_foldChange")) +
         scale_color_gradient2(midpoint=0, low="blue", mid="cornsilk", high="red", space ="Lab", name = "FoldChange") +
         ggtitle(paste0(cond1))
     

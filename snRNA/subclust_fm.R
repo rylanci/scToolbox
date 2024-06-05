@@ -7,7 +7,7 @@ library(reshape2)
 library(gridExtra)
 library(argparse)
 library(MAST)
-source("/home/rlancione/scToolbox/snRNA/fm_report.R")
+source("/tscc/nfs/home/rlancione/scToolbox/snRNA/fm_report.R")
 
 
 process_args <- function(){
@@ -39,9 +39,21 @@ process_args <- function(){
         help="number of cores to run FindMarkers with", 
         default = 12)
 
-    parser$add_argument("-u","--universe",
+    parser$add_argument("-u","--universe", type = "logical",
         help="whether to use clusterProfiler universe (background)", 
-        default = FALSE)
+        default = "FALSE")
+
+    parser$add_argument("-rfm","--run_fm", type = "logical",
+        help="whether to run find markers", 
+        default = "TRUE")
+
+    parser$add_argument("-rpr","--run_presto", type = "logical",
+        help="whether to run presto", 
+        default = "TRUE")
+
+    parser$add_argument("-rcp","--run_cp", type = "logical",
+        help="whether to run clusterProfiler", 
+        default = "TRUE")
 
 
     args <- parser$parse_args()
@@ -61,8 +73,9 @@ print(paste0("n workers: ", args$workers))
 ########## Begin running FM report 
 print("Initialize FM Report")
 # Identify processd object 
-files <- list.files(paste0(args$output_path, "Objects/"))
-file <- grep(pattern = paste0(args$name,".RDS"), x = files, value = TRUE)  
+file <- list.files(paste0(args$output_path, "Objects/"))
+#file <- grep(pattern = paste0(args$name,".RDS"), x = files, value = TRUE)  
+print(paste0("Object to read: ", file))
 
 print(paste0("Processing: ", args$output_path, "Objects/", file))
 sobj <- readRDS(paste0(args$output_path, "Objects/", file))
@@ -71,27 +84,43 @@ dir.create(paste0(args$output_path, "FM_output/"), showWarnings = FALSE)
 dir.create(paste0(args$output_path, "FM_output/", args$name), showWarnings = FALSE)
 odir <- paste0(args$output_path, "FM_output/", args$name, "/")
 
-if (args$assay == "RNA"){
-    DefaultAssay(sobj) <- "RNA"
-    sobj <- NormalizeData(sobj)
-    res <- suppressMessages(run_fm(sobj = sobj, test = args$test, 
-    	n.workers = 10))
-} else if (args$assay == "SCT"){
-    DefaultAssay(sobj) <- "SCT"
-    res <- suppressMessages(run_fm(sobj = sobj, prep.sct = TRUE,
-	test = args$test, n.workers = args$workers))
-} else {print("Not supported assay")}
+
+
+if (args$run_fm){
+	print("Run FindMarkers")
+	if (args$assay == "RNA"){
+		DefaultAssay(sobj) <- "RNA"
+			sobj <- NormalizeData(sobj)
+			res <- suppressMessages(run_fm(sobj = sobj, test = args$test, 
+						n.workers = 10))
+	} else if (args$assay == "SCT"){
+		DefaultAssay(sobj) <- "SCT"
+			res <- suppressMessages(run_fm(sobj = sobj, prep.sct = TRUE,
+						test = args$test, n.workers = args$workers))
+	} else {print("Not supported assay")}
 
 res.de <- fm_report(sobj = sobj, res = res, outdir = odir)
 write.table(res, paste0(odir, "fm_res.txt"))
 
-run_presto(sobj = sobj, outdir = odir)
+}
 
-if (args$universe){
+if (args$run_presto){
+	print("Run Presto")
+	run_presto(sobj = sobj, outdir = odir)
+}
+
+
+
+if (args$universe & args$run_cp){
+	print("Run ClusterProfiler")
 	print("Utilizing CP universe")
+	res.de <- read.table(paste0(odir, "fm_res.txt")) 
 	genes <- extract_detected_features(sobj)
 	fm_cProfiler(res.de = res.de, outdir = odir, universe = genes)
-else {
+} else if (args$run_cp){
+	print("Run ClusterProfiler")
 	fm_cProfiler(res.de = res.de, outdir = odir, universe = NULL)
 }
+
+
 

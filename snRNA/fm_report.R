@@ -151,12 +151,24 @@ fm_report <- function(res, sobj, outdir){
 }
 
 
-fm_cProfiler<- function(res.de, outdir, organism = "human", universe = args$universe){
+fm_cProfiler<- function(res.de, outdir, organism = "human", universe = NULL){
 	# run cluster profiler on the up/down from each cluster
-	# top 200
 	dir.create(paste0(outdir, "CP_out/"), showWarnings = FALSE)
 	dir.create(paste0(outdir, "CP_out/tables/"), showWarnings = FALSE)
 	dir.create(paste0(outdir, "CP_out/plots"), showWarnings = FALSE)
+
+	de.status <- c()
+	for (r in seq(1, nrow(res.de))){
+		trow <- res.de[r,]
+		if (trow$avg_log2FC > .58 & trow$p_val_adj < .05){
+			de.status <- append(de.status, "up")
+		} else if (trow$avg_log2FC < -.58 & trow$p_val_adj < .05){
+			de.status <- append(de.status, "down")
+		} else {
+			de.status <- append(de.status, "notDE")
+		}
+	}
+	res.de$status <- de.status
 
 	for (c in seq(0, length(unique(res.de$cluster)))){
 	    res.cp <- res.de[res.de$cluster == c & res.de$status == "up",]
@@ -200,7 +212,7 @@ extract_detected_features <- function(sobj){
     sums <- rowSums(sobj@assays$RNA@counts)
     detected_genes <- names(sums[sums > 0])
 
-    return(detect_genes)
+    return(detected_genes)
 }
 
 # Change layering of feature plots

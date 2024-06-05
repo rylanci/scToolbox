@@ -88,8 +88,10 @@ create_ctpeak_bmat <- function(ct, sobj, peak.path, fobjs, ct.col, dset.col, pro
     Idents(sobj.c) <- dset.col
     for (d in dsets[,1]){
         sobj.t <- subset(sobj.c, idents = d)
-        rsums <- rowSums(sobj.t[[paste0(ct,"_peaks")]]$counts)
-        dset.frame[d] <- rsums
+		if(length(WhichCells(sobj.t)) > 5){
+        	rsums <- rowSums(sobj.t[[paste0(ct,"_peaks")]]$counts)
+	        dset.frame[d] <- rsums
+		}
     }
 
     ct <- str_replace_all(ct, "/", ".")

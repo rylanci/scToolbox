@@ -34,18 +34,18 @@ HARM_COL="orig.ident"
 #COMP_PATH="/projects/ps-epigen/users/rlan/Lung_BPD/Subclustering/comparisons.txt"
 
 #### Processing & QC script
-QC_Report='/projects/ps-epigen/users/rlan/Space_Organoid/Reports/subclust_proc_qc.R'
+QC_Report='/tscc/nfs/home/rlancione/scToolbox/snRNA/subclust_proc_qc.R'
 Rscript $QC_Report -sobj $SEU_OBJ -c $CELLTYPE -n $NAME -o $OUT_PATH \
 	-hg $HARM_COL
 
 #### FindMarker report script 
-FM_Report='/projects/ps-epigen/users/rlan/Lung_BPD/Subclustering/scripts/subclust_fm.R'
+FM_Report='/tscc/nfs/home/rlancione/scToolbox/snRNA/subclust_fm.R'
 Rscript $FM_Report -o $OUT_PATH -a $ASSAY -t $TEST -n $NAME -w 18
 
 #### scCustomize dotplot script 
-conda deactivate 
-conda activate seurat
-scDP="/projects/ps-epigen/users/rlan/Lung_BPD/Subclustering/scripts/clust_dotplot.R"
-Rscript $scDP -o $OUT_PATH -n $NAME 
+#conda deactivate 
+#conda activate seurat
+#scDP="/projects/ps-epigen/users/rlan/Lung_BPD/Subclustering/scripts/clust_dotplot.R"
+#Rscript $scDP -o $OUT_PATH -n $NAME 
 
 
